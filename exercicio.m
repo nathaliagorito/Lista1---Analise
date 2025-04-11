@@ -1,44 +1,105 @@
-clc;
+clear; close all; clc;
 
 % Carregar os dados
-load dadosCananeia1988.dtf
-dados = dadosCananeia1988;
-meses = dados(:, 3);       % coluna com o mês
-nivelMar = dados(:, 6);    % coluna com nível do mar
+% load dadosCananeia1988.dtf
+% dados = dadosCananeia1988;
 
-% Inicialização
-mediasMensais = zeros(12,1);
-desviosMensais = zeros(12,1);
+load dadosUbatuba1988.dat
+dados = dadosUbatuba1988;
+elev = dados(:, 6);
 
-for m = 1:12
-    indicesMes = find(meses == m);
-    dadosMes = nivelMar(indicesMes);
-    mediasMensais(m) = mean(dadosMes);
-    desviosMensais(m) = std(dadosMes);
+% Cálculo da distribuição normal e valor extremo para os dados 'elev'
+
+mediaNivelMar = mean(elev);
+desvioNivelMar = std(elev);
+betaGumbel = sqrt(6)*desvioNivelMar/pi;
+muGumbel = mediaNivelMar - 0.5772 * betaGumbel;
+
+incremento = input('Forneça incremento para cálculo da fdp, ex: 0.015: ');
+
+minNivelMar = mediaNivelMar - 4*desvioNivelMar;
+maxNivelMar = mediaNivelMar + 4*desvioNivelMar;
+nivel = minNivelMar:incremento:maxNivelMar;
+
+fdpNormal = exp(-(((nivel - mediaNivelMar) / desvioNivelMar).^2) / 2) / (desvioNivelMar * sqrt(2*pi));
+
+z = (nivel - muGumbel) / betaGumbel;
+fdpGumbel = (1/betaGumbel) * exp(-(z + exp(-z)));
+
+figure
+graficoFdpNormal = plot(nivel, fdpNormal, 'b-', 'LineWidth', 2)
+hold on
+graficoFdpGumbel = plot(nivel, fdpGumbel, 'g--', 'LineWidth', 2)
+configuraGrafico(graficoFdpNormal, 'Função Densidade', 'Nível do Mar (m)', 'FDP');
+legend('Normal', 'Valor Extremo (Gumbel)')
+
+p1Normal = normcdf(50, mediaNivelMar, desvioNivelMar);                         % P(elev < 50)
+p2Normal = normcdf(55, mediaNivelMar, desvioNivelMar) - normcdf(45, mediaNivelMar, desvioNivelMar);  % P(45 < elev < 55)
+p3Normal = 1 - normcdf(60, mediaNivelMar, desvioNivelMar);                     % P(elev > 60)
+
+p1Gumbel = exp(-exp(-(50 - muGumbel)/betaGumbel));                         % P(elev < 50)
+p2Gumbel = exp(-exp(-(55 - muGumbel)/betaGumbel)) - exp(-exp(-(45 - muGumbel)/betaGumbel));  % P(45 < elev < 55)
+p3Gumbel = 1 - exp(-exp(-(60 - muGumbel)/betaGumbel));                     % P(elev > 60)
+
+infoTexto = {
+    sprintf('\n--- Probabilidades (Distribuição Normal) ---\n'),
+    sprintf('P(elev < 50)     = %.4f\n', p1Normal),
+    sprintf('P(45 < elev < 55)= %.4f\n', p2Normal),
+    sprintf('P(elev > 60)     = %.4f\n', p3Normal),
+    sprintf('\n--- Probabilidades (Valor Extremo - Gumbel) ---\n'),
+    sprintf('P(elev < 50)     = %.4f\n', p1Gumbel),
+    sprintf('P(45 < elev < 55)= %.4f\n', p2Gumbel),
+    sprintf('P(elev > 60)     = %.4f\n', p3Gumbel)
+};
+
+for i = 1:length(infoTexto)
+    text(0.01, 0.95 - (i-1)*0.06, infoTexto{i}, 'Units', 'normalized', 'Color', 'k', 'FontWeight', 'bold', 'Interpreter', 'none');
 end
-% Tabela de resultados
-T = table((1:12)', mediasMensais, desviosMensais, ...
-    'VariableNames', {'Mes', 'Media', 'DesvioPadrao'});
-disp(T)
 
-% Gráfico de barras com barras de erro
-figure;
-bar(1:12, mediasMensais, 'FaceColor', [0.2 0.6 0.8]); hold on;
-errorbar(1:12, mediasMensais, desviosMensais, '.k', 'LineWidth', 1.5);
-xticks(1:12); xticklabels({'Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'})
-xlabel('Mês');
-ylabel('Nível do Mar (m)');
-title('Médias mensais com desvio padrão');
-grid on;
 
-% Identificar meses de interesse
-[maiorMedia, mesMaiorMedia] = max(mediasMensais);
-[menorMedia, mesMenorMedia] = min(mediasMensais);
-[maiorVariab, mesMaiorVariab] = max(desviosMensais);
+% nivelMar = dados(:, 6);    % coluna 6 = nível do mar
+% 
+% % Remover a média (centralizar os dados)
+% nivelMar = nivelMar - mean(nivelMar);
+% 
+% 
+% tamanho = length(nivelMar);
+% fftDados = fft(nivelMar);
+% fftAmplitude = abs(fftDados(2:floor(tamanho/2))) / (tamanho/2);
+% 
+% frequencias = (1:floor(tamanho/2)-1) / tamanho;
+% periodoDias = 1 ./ (frequencias * 24);
+% omega = 2*pi*frequencias;
+% 
+% 
+% figure;
+% graficoFFT = plot(periodoDias, fftAmplitude, 'b', 'LineWidth', 1.5);
+% configuraGrafico(graficoFFT, 'Transformada de Fourier', 'Período (dias)', 'Amplitude');
+% xlim([0 100]);
+% 
+% 
+% [amplitudeTop5, idx] = maxk(fftAmplitude, 5);
+% frequenciaTop5 = frequencias(idx);
+% omegaTop5 = omega(idx);
+% periodosTop5 = periodoDias(idx);
+% 
+% 
+% tabelaTop5 = table(amplitudeTop5, omegaTop5', periodosTop5', 'VariableNames', {'Amplitude', 'Frequência_Angular_radPorHora', 'Período_dias'});
+% disp(tabelaTop5);
+% 
+% 
+function configuraGrafico(grafico, titulo, xLabel, yLabel)
+    axes(grafico.Parent);
 
-fprintf('\n→ Maior média mensal: Mês %d (%.3f m)\n', mesMaiorMedia, maiorMedia);
-fprintf('→ Menor média mensal: Mês %d (%.3f m)\n', mesMenorMedia, menorMedia);
-fprintf('→ Maior variabilidade: Mês %d (Desvio padrão: %.3f m)\n', mesMaiorVariab, maiorVariab);
+    title(titulo);
+
+    xlabel(xLabel, 'fontsize', 12);
+    ylabel(yLabel, 'fontsize', 12);
+
+    grid on;
+
+    %print(grafico);
+end
 
 % clear; close all; clc;
 % 
@@ -92,16 +153,6 @@ fprintf('→ Maior variabilidade: Mês %d (Desvio padrão: %.3f m)\n', mesMaiorV
 % fprintf('P(Nível > média + 1σ)     = %.4f\n', p2_gumbel);
 % fprintf('P(Nível > média + 2σ)     = %.4f\n', p3_gumbel);
 
-
-% clear; close all; clc;
-% 
-% %Lendo arquivo de dados
-% load dadosCananeia1988.dtf;
-% arquivoDados = dadosCananeia1988;
-% 
-% % load uba1988.dat;
-% % arquivoDados = uba1988;
-% 
 % nudad = size(arquivoDados, 1);
 % elev = arquivoDados(:, 6);
 % 
